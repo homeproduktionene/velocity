@@ -22,27 +22,29 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
-      - name: Install LLVM 19 into Visual Studio toolset
+      - name: Install LLVM 20 into Visual Studio toolset
         shell: pwsh
         run: |
-          # VS erwartet ClangCL unter seinem eigenen VC\Tools\Llvm-Verzeichnis.
-          # Wir laden LLVM 19 herunter und entpacken es direkt dorthin.
           $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
             -products * -requires Microsoft.Component.MSBuild -property installationPath -latest
           $llvmDest = "$vsPath\VC\Tools\Llvm\x64"
 
           Write-Host "VS path: $vsPath"
-          Write-Host "Installing LLVM 19 to: $llvmDest"
+          Write-Host "Installing LLVM 20 to: $llvmDest"
 
-          $installer = "$env:TEMP\LLVM-19-win64.exe"
-          Invoke-WebRequest `
-            -Uri "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/LLVM-19.1.7-win64.exe" `
-            -OutFile $installer
+          # Neueste LLVM 20 Release ermitteln und herunterladen
+          $release = Invoke-RestMethod "https://api.github.com/repos/llvm/llvm-project/releases" |
+            Where-Object { $_.tag_name -match "^llvmorg-20\." } |
+            Select-Object -First 1
+          $asset = $release.assets | Where-Object { $_.name -match "LLVM-20.*-win64\.exe$" }
+          Write-Host "Downloading: $($asset.browser_download_url)"
 
-          # Entpacken mit 7-Zip (auf windows-latest vorhanden)
+          $installer = "$env:TEMP\LLVM-20-win64.exe"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installer
+
           & "C:\ProgramData\Chocolatey\bin\7z.exe" x $installer "-o$llvmDest" -y | Out-Null
 
-          Write-Host "LLVM 19 installed. Verifying clang-cl..."
+          Write-Host "Verifying clang-cl..."
           & "$llvmDest\bin\clang-cl.exe" --version
 
       - name: Build ${{ matrix.configuration }}
@@ -51,7 +53,7 @@ jobs:
           msbuild velocity-cs2.slnx `
             /p:Configuration=${{ matrix.configuration }} `
             /p:Platform=x64 `
-            /p:LLVMToolsVersion=19 `
+            /p:LLVMToolsVersion=20 `
             /m `
             /v:minimal
 
