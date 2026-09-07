@@ -32,15 +32,14 @@ jobs:
           Write-Host "VS path: $vsPath"
           Write-Host "Installing LLVM 20 to: $llvmDest"
 
-          # Neueste LLVM 20 Release ermitteln und herunterladen
-          $release = Invoke-RestMethod "https://api.github.com/repos/llvm/llvm-project/releases" |
-            Where-Object { $_.tag_name -match "^llvmorg-20\." } |
-            Select-Object -First 1
-          $asset = $release.assets | Where-Object { $_.name -match "LLVM-20.*-win64\.exe$" }
-          Write-Host "Downloading: $($asset.browser_download_url)"
+          # Neueste LLVM-20-Release ermitteln (erste Seite reicht, neueste ist oben)
+          $releases = Invoke-RestMethod "https://api.github.com/repos/llvm/llvm-project/releases?per_page=50"
+          $release  = $releases | Where-Object { $_.tag_name -match "^llvmorg-20\." } | Select-Object -First 1
+          $url      = ($release.assets | Where-Object { $_.name -match "^LLVM-20.*-win64\.exe$" } | Select-Object -First 1).browser_download_url
 
+          Write-Host "Downloading: $url"
           $installer = "$env:TEMP\LLVM-20-win64.exe"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installer
+          Invoke-WebRequest -Uri $url -OutFile $installer
 
           & "C:\ProgramData\Chocolatey\bin\7z.exe" x $installer "-o$llvmDest" -y | Out-Null
 
