@@ -1,0 +1,46 @@
+name: Build velocity-cs2
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        configuration: [Development, Ship]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install LLVM 19 (ClangCL)
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "19"
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build ${{ matrix.configuration }}
+        working-directory: cs2
+        run: |
+          msbuild velocity-cs2.slnx `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=x64 `
+            /p:LLVMToolsVersion=19 `
+            /m `
+            /v:minimal
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: velocity-cs2-${{ matrix.configuration }}-x64
+          path: cs2/bin/*.dll
+          if-no-files-found: error
+          retention-days: 30
