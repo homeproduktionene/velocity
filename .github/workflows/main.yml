@@ -19,13 +19,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install LLVM 19 (ClangCL)
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: "19"
-
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
+
+      - name: Install LLVM 19 into Visual Studio toolset
+        shell: pwsh
+        run: |
+          # VS erwartet ClangCL unter seinem eigenen VC\Tools\Llvm-Verzeichnis.
+          # Wir laden LLVM 19 herunter und entpacken es direkt dorthin.
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -products * -requires Microsoft.Component.MSBuild -property installationPath -latest
+          $llvmDest = "$vsPath\VC\Tools\Llvm\x64"
+
+          Write-Host "VS path: $vsPath"
+          Write-Host "Installing LLVM 19 to: $llvmDest"
+
+          $installer = "$env:TEMP\LLVM-19-win64.exe"
+          Invoke-WebRequest `
+            -Uri "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/LLVM-19.1.7-win64.exe" `
+            -OutFile $installer
+
+          # Entpacken mit 7-Zip (auf windows-latest vorhanden)
+          & "C:\ProgramData\Chocolatey\bin\7z.exe" x $installer "-o$llvmDest" -y | Out-Null
+
+          Write-Host "LLVM 19 installed. Verifying clang-cl..."
+          & "$llvmDest\bin\clang-cl.exe" --version
 
       - name: Build ${{ matrix.configuration }}
         working-directory: cs2
