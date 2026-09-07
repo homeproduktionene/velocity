@@ -121,7 +121,7 @@ namespace protection::addresses {
 
 #ifndef CONVAR
 #if !defined (DEV)
-#define CONVAR(str)       ::protection::addresses ::decode(ADDRESS_IMPL(::protection::addresses ::hash(str), ::protection::addresses ::address_type::convar,        str))
+#define CONVAR(str) reinterpret_cast<c_convar*>(::protection::addresses ::decode(ADDRESS_IMPL(::protection::addresses ::hash(str), ::protection::addresses ::address_type::convar, str)))      str))
 #else
 #define CONVAR(str) \
     []() -> c_convar* { \
